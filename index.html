@@ -1,1 +1,320 @@
-file:///C:/Users/tjdbs/Downloads/gemini-code-1781353788885.html
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우주 데이터 정리 시뮬레이터</title>
+    <style>
+        /* --- 기본 스타일 (우주 테마) --- */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0b0b16;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        .screen {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .active {
+            display: flex;
+        }
+
+        button {
+            background: linear-gradient(135deg, #232526, #414345);
+            color: white;
+            border: 1px solid #555;
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(255,255,255,0.1);
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 255, 200, 0.5);
+            border-color: #00ffc8;
+        }
+
+        /* --- ① 방문 화면 --- */
+        #screen-main .earth-placeholder {
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, #3a7bd5, #3a6073);
+            border-radius: 50%;
+            margin-bottom: 40px;
+            box-shadow: 0 0 30px rgba(58, 123, 213, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+        }
+
+        /* --- ② 클릭 후 화면 (행성 지도) --- */
+        #screen-map {
+            background-image: radial-gradient(circle at center, #1a1a2e 0%, #0b0b16 100%);
+        }
+        
+        .map-instruction {
+            position: absolute;
+            top: 20px;
+            font-size: 18px;
+            color: #888;
+        }
+
+        /* SVG 영역 (행성 노드와 선을 그리는 곳) */
+        #space-map {
+            width: 80%;
+            height: 70%;
+            border: 1px dashed #333;
+            background-color: rgba(255,255,255,0.02);
+            border-radius: 12px;
+        }
+
+        .planet-node {
+            fill: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+            filter: drop-shadow(0 0 5px rgba(255,255,255,0.8));
+        }
+
+        .planet-node:hover {
+            fill: #00ffc8;
+            r: 12; /* 마우스 올리면 커짐 */
+        }
+
+        .orbit-line {
+            stroke: rgba(255, 255, 255, 0.2);
+            stroke-width: 2;
+            stroke-dasharray: 4;
+        }
+
+        /* --- ③ 행성 상세 정보 모달창 --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .modal-box {
+            background-color: #161623;
+            border: 2px solid #333;
+            border-radius: 16px;
+            width: 600px;
+            padding: 30px;
+            position: relative;
+            display: flex;
+            gap: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #aaa;
+        }
+        .modal-close:hover { color: #fff; }
+
+        /* 모달 내부 좌측 (행성 그래픽) */
+        .modal-left {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .planet-view {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: #fff; /* 기본값 */
+            box-shadow: 0 0 20px rgba(255,255,255,0.3);
+        }
+
+        /* 모달 내부 우측 (물리량 및 태그) */
+        .modal-right {
+            flex: 1.5;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .info-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 20px 0;
+        }
+
+        .info-list li {
+            margin-bottom: 12px;
+            font-size: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 4px;
+        }
+
+        /* 거주 가능 여부 태그 */
+        .habitability-tag {
+            align-self: flex-start;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .status-available { background-color: #00ffc8; color: #0b0b16; }
+        .status-unavailable { background-color: #ff4a5a; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <div id="screen-main" class="screen active">
+        <div class="earth-placeholder">지구 이미지</div>
+        <button onclick="changeScreen('screen-map')">외계행성 탐사 시작하기</button>
+    </div>
+
+    <div id="screen-map" class="screen">
+        <div class="map-instruction">방문과 ➔ 아무 행성 클릭</div>
+        <svg id="space-map"></svg>
+    </div>
+
+    <div id="planet-modal" class="modal-overlay">
+        <div class="modal-box">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            
+            <div class="modal-left">
+                <div id="modal-planet-img" class="planet-view"></div>
+            </div>
+            
+            <div class="modal-right">
+                <h2 id="modal-planet-name" style="margin-top:0;">행성 이름</h2>
+                <ul class="info-list">
+                    <li>공전주기: <span id="info-period">-</span></li>
+                    <li>지름: <span id="info-diameter">-</span></li>
+                    <li>온도: <span id="info-temperature">-</span></li>
+                    <li>특징: <span id="info-etc">-</span></li>
+                </ul>
+                <div id="modal-tag" class="habitability-tag">거주가능여부</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================
+           📊 [나중에 데이터 자료를 넣는 영역]
+           나중에 엑셀이나 DB 데이터를 아래 양식에 맞게 바꾸면 바로 적용됩니다!
+        ========================================== */
+        const planetData = [
+            { id: 1, name: "행성 A", cx: 150, cy: 150, color: "#ff9f43", period: "32일", diameter: "12,000km", temp: "150℃", etc: "대기가 매우 뜨거움", habitable: false },
+            { id: 2, name: "행성 B", cx: 350, cy: 220, color: "#00d2d3", period: "365일", diameter: "12,742km", temp: "15℃", etc: "물과 대기 존재 확인", habitable: true },
+            { id: 3, name: "행성 C", cx: 250, cy: 380, color: "#5f27cd", period: "687일", diameter: "6,779km", temp: "-60℃", etc: "적색 산화철로 덮임", habitable: false },
+            { id: 4, name: "행성 D", cx: 550, cy: 180, color: "#ff6b6b", period: "224일", diameter: "12,104km", temp: "460℃", etc: "황산 구름층 존재", habitable: false },
+            { id: 5, name: "행성 E", cx: 650, cy: 350, color: "#1dd1a1", period: "450일", diameter: "15,000km", temp: "22℃", etc: "거주 최적 환경 유력", habitable: true }
+        ];
+
+        // 행성들을 연결할 선(궤도 관계) 정의
+        const connections = [
+            { from: 1, to: 2 },
+            { from: 2, to: 3 },
+            { from: 2, to: 4 },
+            { from: 4, to: 5 },
+            { from: 3, to: 5 }
+        ];
+
+
+        /* ==========================================
+           ⚙️ [기능 실행 스크립트] - 건드리지 않아도 작동합니다.
+        ========================================== */
+        const svgMap = document.getElementById('space-map');
+
+        // 화면 전환 함수
+        function changeScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            if(screenId === 'screen-map') {
+                renderMap(); // 지도 화면으로 갈 때 지도를 그립니다.
+            }
+        }
+
+        // 2번 화면: 성상도(지도) 그리기 함수
+        function renderMap() {
+            svgMap.innerHTML = ''; // 초기화
+            
+            // 1. 선 그리기
+            connections.forEach(conn => {
+                const p1 = planetData.find(p => p.id === conn.from);
+                const p2 = planetData.find(p => p.id === conn.to);
+                if(p1 && p2) {
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line.setAttribute("x1", p1.cx); line.setAttribute("y1", p1.cy);
+                    line.setAttribute("x2", p2.cx); line.setAttribute("y2", p2.cy);
+                    line.setAttribute("class", "orbit-line");
+                    svgMap.appendChild(line);
+                }
+            });
+
+            // 2. 행성 점(노드) 그리기
+            planetData.forEach(planet => {
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("cx", planet.cx);
+                circle.setAttribute("cy", planet.cy);
+                circle.setAttribute("r", 8);
+                circle.setAttribute("class", "planet-node");
+                // 나중에 개별 행성 색상 반영 가능하도록 스타일 부여
+                circle.style.fill = planet.color; 
+                
+                // 클릭 이벤트 등록 ➔ 3번 모달 팝업 띄우기
+                circle.onclick = () => openModal(planet);
+                svgMap.appendChild(circle);
+            });
+        }
+
+        // 3번 화면: 모달 열기 및 데이터 나열
+        function openModal(planet) {
+            document.getElementById('modal-planet-name').innerText = planet.name;
+            document.getElementById('info-period').innerText = planet.period;
+            document.getElementById('info-diameter').innerText = planet.diameter;
+            document.getElementById('info-temperature').innerText = planet.temp;
+            document.getElementById('info-etc').innerText = planet.etc;
+            
+            // 좌측 원형 색상 변경 (행성 그래픽 느낌)
+            const imgView = document.getElementById('modal-planet-img');
+            imgView.style.background = `radial-gradient(circle at 30% 30%, ${planet.color}, #000)`;
+
+            // 거주 가능 태그 변경
+            const tag = document.getElementById('modal-tag');
+            if(planet.habitable) {
+                tag.innerText = "거주 가능";
+                tag.className = "habitability-tag status-available";
+            } else {
+                tag.innerText = "거주 불가능";
+                tag.className = "habitability-tag status-unavailable";
+            }
+
+            document.getElementById('planet-modal').style.display = 'flex';
+        }
+
+        // 모달 닫기
+        function closeModal() {
+            document.getElementById('planet-modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
